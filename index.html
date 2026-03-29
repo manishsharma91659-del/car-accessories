@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neo Market</title>
+
+<style>
+:root{
+  --accent:#e63946;
+}
+body{margin:0;font-family:Arial;background:#f5f5f5;}
+h1,h2,h3{font-family:Georgia;}
+
+nav{
+  display:flex;justify-content:space-between;
+  padding:15px;background:#000;color:#fff;
+  position:sticky;top:0;
+}
+
+.hero{
+  background:#000;color:#fff;text-align:center;padding:40px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:15px;padding:20px;
+}
+
+.card{
+  background:#fff;padding:10px;border-radius:10px;
+  position:relative;
+}
+.card img{width:100%;height:150px;object-fit:cover;}
+
+.badge{
+  position:absolute;top:10px;left:10px;
+  background:var(--accent);color:#fff;padding:3px 8px;
+  font-size:12px;
+}
+
+button{
+  width:100%;padding:10px;border:none;
+  background:var(--accent);color:#fff;margin-top:5px;
+}
+
+input,textarea{width:100%;padding:10px;margin:5px 0;}
+
+.review{
+  background:#fff;padding:10px;margin:10px 0;
+  border-radius:8px;font-size:14px;
+}
+
+.sticky{
+  position:fixed;bottom:0;width:100%;
+  background:#fff;padding:10px;
+  box-shadow:0 -2px 10px rgba(0,0,0,0.1);
+}
+
+.popup{
+  position:fixed;bottom:80px;left:10px;
+  background:#000;color:#fff;padding:10px;
+  font-size:12px;border-radius:5px;
+}
+</style>
+</head>
+
+<body>
+
+<nav>
+<div>Neo Market</div>
+<div>
+<a href="#">Home</a>
+<a href="#cart">Cart (<span id="cartCount">0</span>)</a>
+</div>
+</nav>
+
+<div id="app"></div>
+<div id="popup"></div>
+
+<script>
+// CONFIG
+const CONFIG = {
+formspree:"https://formspree.io/f/xvzvkvod",
+currency:"₹",
+whatsapp:"919999999999"
+};
+
+// PRODUCTS
+const PRODUCTS = [
+{
+id:1,
+name:"Car Phone Holder",
+price:299,
+description:"360° strong grip holder",
+images:["https://images.unsplash.com/photo-1605559424843-9e4c2281e7c6"],
+stock:5,
+reviews:["Very useful 👍","Strong grip","Worth price"]
+},
+{
+id:2,
+name:"LED Headlight",
+price:999,
+description:"Super bright LED",
+images:["https://images.unsplash.com/photo-1619767886558-efdc259cde1a"],
+stock:3,
+reviews:["Night driving improved","Very bright","Good quality"]
+}
+];
+
+// CART
+let cart = JSON.parse(localStorage.getItem("neo_cart")) || [];
+
+function saveCart(){
+localStorage.setItem("neo_cart",JSON.stringify(cart));
+updateCartCount();
+}
+
+function updateCartCount(){
+document.getElementById("cartCount").innerText =
+cart.reduce((a,b)=>a+b.qty,0);
+}
+
+// ADD
+function addToCart(id){
+let p = PRODUCTS.find(x=>x.id===id);
+let item = cart.find(i=>i.id===id);
+
+if(item){
+if(item.qty < p.stock){item.qty++;}
+else{alert("Stock limit reached");return;}
+}
+else{
+cart.push({id,qty:1});
+}
+
+saveCart();
+render();
+}
+
+// ROUTE
+window.addEventListener("hashchange",render);
+
+function render(){
+let app=document.getElementById("app");
+let hash=location.hash||"#home";
+
+if(hash.startsWith("#product-")){
+renderProduct(app,parseInt(hash.split("-")[1]));
+}
+else if(hash=="#cart"){
+renderCart(app);
+}
+else if(hash=="#checkout"){
+renderCheckout(app);
+}
+else{
+renderHome(app);
+}
+}
+
+// HOME
+function renderHome(app){
+app.innerHTML=`
+<div class="hero">
+<h1>Upgrade Your Car Experience</h1>
+<p>COD Available | Limited Stock</p>
+</div>
+
+<div class="grid">
+${PRODUCTS.map(p=>`
+<div class="card">
+<span class="badge">${p.stock} left</span>
+<img src="${p.images[0]}">
+<h3>${p.name}</h3>
+<p>${CONFIG.currency}${p.price}</p>
+
+<button onclick="addToCart(${p.id})">Add to Cart</button>
+<button onclick="location.hash='#product-${p.id}'">View</button>
+</div>
+`).join("")}
+</div>
+`;
+}
+
+// PRODUCT PAGE
+function renderProduct(app,id){
+let p=PRODUCTS.find(x=>x.id===id);
+
+app.innerHTML=`
+<div style="padding:20px">
+<h2>${p.name}</h2>
+<img src="${p.images[0]}" style="width:100%">
+<p>${p.description}</p>
+
+<h3>${CONFIG.currency}${p.price}</h3>
+
+<p style="color:red">Hurry! Only ${p.stock} left</p>
+
+<div id="timer"></div>
+
+<button onclick="addToCart(${p.id})">Add to Cart</button>
+
+<button onclick="orderWhatsApp(${id})">Buy on WhatsApp</button>
+
+<h3>Reviews</h3>
+${p.reviews.map(r=>`<div class="review">⭐ ${r}</div>`).join("")}
+</div>
+
+<div class="sticky">
+<button onclick="addToCart(${p.id})">Buy Now</button>
+</div>
+`;
+
+startTimer();
+}
+
+// TIMER
+function startTimer(){
+let sec=600;
+let el=document.getElementById("timer");
+
+let int=setInterval(()=>{
+sec--;
+let m=Math.floor(sec/60);
+let s=sec%60;
+el.innerHTML=`Offer ends in ${m}:${s}`;
+
+if(sec<=0)clearInterval(int);
+},1000);
+}
+
+// CART
+function renderCart(app){
+let total=0;
+
+let items=cart.map(c=>{
+let p=PRODUCTS.find(x=>x.id===c.id);
+total+=p.price*c.qty;
+
+return `<div>
+<h3>${p.name}</h3>
+<input type="number" value="${c.qty}" min="1"
+onchange="updateQty(${c.id},this.value)">
+</div>`;
+}).join("");
+
+app.innerHTML=`
+<div style="padding:20px">
+<h2>Cart</h2>
+${items || "Empty"}
+<h3>Total: ${CONFIG.currency}${total}</h3>
+<button onclick="location.hash='#checkout'">Checkout</button>
+</div>`;
+}
+
+function updateQty(id,val){
+let p=PRODUCTS.find(x=>x.id===id);
+let item=cart.find(i=>i.id===id);
+
+if(val<=p.stock){
+item.qty=parseInt(val);
+}else{
+alert("Stock exceeded");
+}
+saveCart();
+render();
+}
+
+// CHECKOUT
+function renderCheckout(app){
+let total=cart.reduce((t,c)=>{
+let p=PRODUCTS.find(x=>x.id===c.id);
+return t+p.price*c.qty;
+},0);
+
+app.innerHTML=`
+<div style="padding:20px">
+<h2>Checkout</h2>
+
+<form action="${CONFIG.formspree}" method="POST" onsubmit="submitOrder(event)">
+<input name="name" placeholder="Name" required>
+<input name="phone" placeholder="Phone" required>
+<textarea name="address" placeholder="Address" required></textarea>
+
+<input type="hidden" name="order" id="orderData">
+
+<h3>Total: ${CONFIG.currency}${total}</h3>
+<button type="submit">Place Order</button>
+</form>
+</div>`;
+}
+
+function submitOrder(){
+let order = cart.map(c=>{
+let p=PRODUCTS.find(x=>x.id===c.id);
+return `${p.name} x ${c.qty}`;
+}).join(", ");
+
+document.getElementById("orderData").value=order;
+
+setTimeout(()=>{
+cart=[];saveCart();
+alert("Order placed!");
+location.hash="#home";
+},1000);
+}
+
+// WHATSAPP FULL ORDER
+function orderWhatsApp(id){
+let p=PRODUCTS.find(x=>x.id===id);
+let text=`I want to order ${p.name} for ${CONFIG.currency}${p.price}`;
+window.open(`https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(text)}`);
+}
+
+// SOCIAL PROOF POPUP
+const names=["Rahul","Amit","Sneha","Vikas"];
+setInterval(()=>{
+let p=PRODUCTS[Math.floor(Math.random()*PRODUCTS.length)];
+let name=names[Math.floor(Math.random()*names.length)];
+
+let popup=document.getElementById("popup");
+popup.innerHTML=`${name} ordered ${p.name}`;
+popup.className="popup";
+
+setTimeout(()=>popup.innerHTML="",3000);
+},5000);
+
+// INIT
+updateCartCount();
+render();
+</script>
+
+</body>
+</html>
